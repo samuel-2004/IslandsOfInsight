@@ -361,17 +361,70 @@ class LogicGrid():
         return True
 
     def _check_area_numbers(self, one_off = False) -> bool:
-        pass
+        def dfs(x: int, y: int, num: int, one_off: bool):
+            stack = [(x, y)]
+            visited = []
+            cells_in_area = 0
+            colour = self.g[x][y].col
 
-    def _test_rules(self):
+            while stack:
+                e = stack.pop(0)
+                if e in visited:
+                    continue
+                visited.append(e)
+                if self.g[e[0]][e[1]].col != colour:
+                    continue
+                cells_in_area += 1
+                if one_off:
+                    if cells_in_area > num + 1:
+                        break
+
+                # Add orthogonal cells to stack
+                if e[0] - 1 >= 0: # cell above
+                    if self.g[e[0] - 1][e[1]].col == colour:
+                        new_e = (e[0] - 1, e[1])
+                        if new_e not in visited:
+                            stack.append(new_e)
+                if e[0] + 1 < self.height: # Cell below
+                    if self.g[e[0] + 1][e[1]].col == colour:
+                        new_e = (e[0] + 1, e[1])
+                        if new_e not in visited:
+                            stack.append(new_e)
+                if e[1] - 1 >= 0: # cell to the left
+                    if self.g[e[0]][e[1] - 1].col == colour:
+                        new_e = (e[0], e[1] - 1)
+                        if new_e not in visited:
+                            stack.append(new_e)
+                if e[1] + 1 < self.width: # cell to the right
+                    if self.g[e[0]][e[1] + 1].col == colour:
+                        new_e = (e[0], e[1] + 1)
+                        if new_e not in visited:
+                            stack.append(new_e)
+
+            if one_off:
+                return (cells_in_area == num - 1) or (cells_in_area == num + 1)
+            else:
+                return cells_in_area == num
+
+        for i in range(self.height):
+            for j in range(self.width):
+                if "number" in self.g[i][j].inf:
+                    # Now need to do a dfs from here
+                    res = dfs(i, j, self.g[i][j]["number"], one_off)
+                    if not res:
+                        return False
+
+    def _test_rules(self) -> bool:
         for rule in self.rules:
             if rule.rule_type in [RuleEnum.MATCH_PATTERN, RuleEnum.MATCH_NOT_PATTERN]:
                 is_pattern_found = self._is_pattern_found(rule.rule_values["pattern"])
                 if (rule.rule_type == RuleEnum.MATCH_PATTERN and not is_pattern_found) or \
                    (rule.rule_type == RuleEnum.MATCH_NOT_PATTERN and is_pattern_found):
                     return False
-            elif rule.rule_type == RuleEnum.AREA_NUMBER:
-                pass
+            elif rule.rule_type in [RuleEnum.AREA_NUMBER, RuleEnum.AREA_NUMBERS_ARE_ONE_OFF]:
+                one_off = rule.rule_type != RuleEnum.AREA_NUMBER
+                if not self._check_area_numbers(one_off):
+                    return False
             elif rule.rule_type == RuleEnum.CONNECT_CELLS:
                 do_cells_connect = self._do_all_of_colour_connect(rule.rule_values["colour"])
                 if not do_cells_connect:
