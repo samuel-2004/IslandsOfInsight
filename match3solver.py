@@ -1,7 +1,7 @@
 """
 Islands of Insight puzzle solvers
 """
-
+from datetime import datetime as dt
 import copy
 from enum import Enum
 
@@ -230,6 +230,7 @@ class Rule():
         out = f"Rule({RuleEnum(self.rule_type)}," + '{'
         for key, val in self.rule_values.items():
             out += f'({key}: {val})'
+        out += '}'
         return out
 
     def __repr__(self):
@@ -287,10 +288,11 @@ class LogicGrid():
 
     func `solution` prints a solution to the LogicGrid puzzle to console
     """
-    def __init__(self, grid: list[list[LogicGridCell]], rules: list[Rule]):
+    def __init__(self, grid: list[list[LogicGridCell]], rules: list[Rule] = []):
         self.g = grid
-        self.width = len(g[0])
-        self.height = len(g)
+        self.width = len(self.g[0])
+        self.height = len(self.g)
+        self.attempts = 0
 
         self.rules = rules
 
@@ -303,11 +305,37 @@ class LogicGrid():
             r = ""
             for j in self.g[i]:
                 if j.col == Colour.BLACK:
-                    r += f'(B, {j.inf})'
+                    r += 'B'
                 elif j.col == Colour.WHITE:
-                    r += f'(W, {j.inf})'
+                    r += 'W'
+                elif j.col == Colour.EMPTY:
+                    r += ' '
             out += r + '\n'
         return out[:-1]
+
+    def num_empty(self) -> int:
+        """
+        Calculates the number of empty cells in grid
+        """
+        total = 0
+        for i in range(self.height):
+            for j in range(self.width):
+                if self.g[i][j].col == Colour.EMPTY:
+                    total += 1
+        return total
+
+    def print_rules(self) -> None:
+        """
+        Prints the logic grid's rules
+        """
+        for rule in self.rules:
+            print(rule)
+
+    def add_rule(self, rule: Rule) -> None:
+        """
+        Adds a new rule
+        """
+        self.rules.append(rule)
 
     def _is_pattern_found(self, pattern: list[list[LogicGridCell]]) -> bool:
         pattern_height = len(pattern)
@@ -327,6 +355,8 @@ class LogicGrid():
         return False
 
     def _do_all_of_colour_connect(self, colour: int) -> bool:
+        #print("Colour =",colour)
+        #print(repr(self))
         # Function to perform DFS and mark visited 1s
         def dfs(x, y, visited):
             if x < 0 or y < 0 or x >= self.height or y >= self.width or self.g[x][y].col != colour or visited[x][y]:
@@ -357,6 +387,8 @@ class LogicGrid():
         for i in range(self.height):
             for j in range(self.width):
                 if self.g[i][j].col == colour and not visited[i][j]:
+                    #print(f"Cell ({i}, {j}) not visited")
+                    #print()
                     return False
         return True
 
@@ -414,6 +446,55 @@ class LogicGrid():
                     if not res:
                         return False
 
+    def _n_symbols_per_colour_area(self, number_of_symbols: int, col: Colour) -> bool:
+        def dfs(x: int, y: int, num_symbols: int) -> bool:
+            stack = [(x, y)]
+            visited = []
+            colour = self.g[x][y].col
+            cells_in_area = 0
+            symbols_in_area = 0
+
+            while stack:
+                e = stack.pop(0)
+                visited.append(e)
+                # Update values
+                cells_in_area += 1
+                if self.g[e[0]][e[1]].inf is not None:
+                    symbols_in_area += 1
+                    if symbols_in_area > num_symbols:
+                        return False
+
+                # Add orthogonal cells to stack
+                if e[0] - 1 >= 0: # cell above
+                    if self.g[e[0] - 1][e[1]].col == colour:
+                        new_e = (e[0] - 1, e[1])
+                        if new_e not in visited:
+                            stack.append(new_e)
+                if e[0] + 1 < self.height: # Cell below
+                    if self.g[e[0] + 1][e[1]].col == colour:
+                        new_e = (e[0] + 1, e[1])
+                        if new_e not in visited:
+                            stack.append(new_e)
+                if e[1] - 1 >= 0: # cell to the left
+                    if self.g[e[0]][e[1] - 1].col == colour:
+                        new_e = (e[0], e[1] - 1)
+                        if new_e not in visited:
+                            stack.append(new_e)
+                if e[1] + 1 < self.width: # cell to the right
+                    if self.g[e[0]][e[1] + 1].col == colour:
+                        new_e = (e[0], e[1] + 1)
+                        if new_e not in visited:
+                            stack.append(new_e)
+
+            pass
+
+        for i in range(self.height):
+            for j in range(self.width):
+                if self.g[i][j].inf is not None and self.g[i][j].col == col:
+                    res = dfs(i, j, number_of_symbols)
+                    if not res:
+                        return False
+
     def _test_rules(self) -> bool:
         for rule in self.rules:
             if rule.rule_type in [RuleEnum.MATCH_PATTERN, RuleEnum.MATCH_NOT_PATTERN]:
@@ -430,24 +511,27 @@ class LogicGrid():
                 if not do_cells_connect:
                     return False
             elif rule.rule_type == RuleEnum.N_SYMBOL_PER_COLOUR:
-                pass
+                num = rule.rule_values["number"]
+                col = rule.rule_values["colour"]
+                if not self._n_symbols_per_colour_area(num, col):
+                    return False
         return True
 
-    def _solve(self, _cell_x = 0, _cell_y = 0) -> bool:
+    def _solve(self, _cell_x = 0, _cell_y = 0, depth = 0) -> bool:
         """
         Provides a solution to the puzzle
         If returns True, all checks passed
         If returns False, invalid solution
         """
-        colours_to_test = [self.g[_cell_x][_cell_y][0]]
-        # if gray, try black and then white
-        if self.g[_cell_x][_cell_y][0] in [0, ' ']:
-            colours_to_test = [-1,1]
-
+        if depth == 49:
+            print(dt.now())
+        # This is the final cell, and we need to check all rules are satisfied
         if _cell_x == self.height - 1 and _cell_y == self.width - 1:
-            # This is the final cell, and we need to check all rules are satisfied
+            colours_to_test = [self.g[_cell_x][_cell_y].col]
+            if self.g[_cell_x][_cell_y].col == Colour.EMPTY:
+                colours_to_test = [Colour.WHITE,Colour.BLACK]
             for colour in colours_to_test:
-                self.g[_cell_x][_cell_y][0] = colour
+                self.g[_cell_x][_cell_y].col = colour
                 if self._test_rules():
                     return True
             return False
@@ -460,11 +544,21 @@ class LogicGrid():
             new_cell_y = _cell_y + 1
             new_cell_x = _cell_x
 
+        # if gray, try black and then white
+        colours_to_test = [self.g[_cell_x][_cell_y].col]
+        if self.g[_cell_x][_cell_y].col == Colour.EMPTY:
+            colours_to_test = [Colour.WHITE,Colour.BLACK]
         for colour in colours_to_test:
-            self.g[_cell_x][_cell_y][0] = colour
-            res = self._solve(new_cell_x, new_cell_y)
+            #if colour == colour.WHITE:
+            #    print(depth, ": W")
+            #else:
+            #    print(depth, ": B")
+            self.g[_cell_x][_cell_y].col = colour
+            res = self._solve(new_cell_x, new_cell_y, depth + 1)
             if res: # If a solution is found
                 return True
+            else:
+                self.g[_cell_x][_cell_y].col = Colour.EMPTY
 
     def solution(self) -> None:
         """
@@ -473,33 +567,60 @@ class LogicGrid():
         """
         if self._solve():
             print("Valid Solution Found:")
-            for i in range(self.height):
-                r = ""
-                for j in self.g[i]:
-                    if j[0] in [-1,'B']:
-                        r += 'B '
-                    elif j[0] in [1,'W']:
-                        r += 'W '
-                print(r)
+            print(repr(self))
         else:
+            #print(self.attempts)
             print("No valid solution found :(")
 
-_ = """g = [
-[0,  0,  'P',  0,  0],
-[0,  'A','W','A',  0],
-['A','W','A','W','A'],
-['A','W','A','W','A'],
-['W','A','W','A','W'],
-['#','#','A','#','#'],
-['#','P','W','P','#']
-]
-G = Match3(g)
-print(repr(G))
-G.solution()"""
-
-g = [
-    [LGC(0),LGC(0)],
-    [LGC(0),LGC(0)]
+def interpret_lg(grid: list[str]) -> LogicGrid:
+    """
+    Creates a logic grid from a given grid
+    eg
+    [
+    'GGGBWBW',
+    'GGBWBWG'
     ]
-G = LogicGrid(g, [])
-G.solution()
+    """
+    logic_grid = []
+    for row in grid:
+        row = row.lower()
+        logic_grid.append([])
+        for char in row:
+            if char == 'w':
+                logic_grid[-1].append(LGC(Colour.WHITE))
+            elif char == 'b':
+                logic_grid[-1].append(LGC(Colour.BLACK))
+            else:
+                logic_grid[-1].append(LGC(Colour.EMPTY))
+    return LogicGrid(logic_grid)
+
+LG = interpret_lg([
+"EEEBEEEEE",
+"EEEEEEEEE",
+"EBEBWBEBE",
+"BEBEEEBEE",
+"EEWEBEWEE",
+"EEWEEEBEW",
+"EWEBWBEWE",
+"EWEEEEEEE",
+"EEEEWEEEE"
+    ])#"""
+
+"""
+LG = interpret_lg([
+"EBW",
+"BWE",
+"BEB"
+    ])"""
+
+r1 = Rule(RuleEnum.CONNECT_CELLS, colour = Colour.BLACK)
+r2 = Rule(RuleEnum.CONNECT_CELLS, colour = Colour.WHITE)
+LG.add_rule(r1)
+LG.add_rule(r2)
+#print(repr(LG))
+#print()
+#LG.print_rules()
+emp = LG.num_empty()
+print(emp)
+print(2 ** emp)
+LG.solution()
