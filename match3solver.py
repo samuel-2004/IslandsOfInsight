@@ -359,7 +359,7 @@ class LogicGrid():
         #print(repr(self))
         # Function to perform DFS and mark visited 1s
         def dfs(x, y, visited):
-            if x < 0 or y < 0 or x >= self.height or y >= self.width or self.g[x][y].col != colour or visited[x][y]:
+            if x < 0 or y < 0 or x >= self.height or y >= self.width or self.g[x][y].col not in (colour, Colour.EMPTY) or visited[x][y]:
                 return
             visited[x][y] = True
             directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
@@ -549,16 +549,13 @@ class LogicGrid():
         if self.g[_cell_x][_cell_y].col == Colour.EMPTY:
             colours_to_test = [Colour.WHITE,Colour.BLACK]
         for colour in colours_to_test:
-            #if colour == colour.WHITE:
-            #    print(depth, ": W")
-            #else:
-            #    print(depth, ": B")
             self.g[_cell_x][_cell_y].col = colour
+            if not self._test_rules():
+                continue
             res = self._solve(new_cell_x, new_cell_y, depth + 1)
             if res: # If a solution is found
                 return True
-            else:
-                self.g[_cell_x][_cell_y].col = Colour.EMPTY
+        self.g[_cell_x][_cell_y].col = Colour.EMPTY
 
     def solution(self) -> None:
         """
@@ -613,10 +610,22 @@ LG = interpret_lg([
 "BEB"
     ])"""
 
-r1 = Rule(RuleEnum.CONNECT_CELLS, colour = Colour.BLACK)
-r2 = Rule(RuleEnum.CONNECT_CELLS, colour = Colour.WHITE)
-LG.add_rule(r1)
-LG.add_rule(r2)
+black2x2 = [
+    [LGC(Colour.BLACK), LGC(Colour.BLACK)],
+    [LGC(Colour.BLACK), LGC(Colour.BLACK)]
+    ]
+white2x2 = [
+    [LGC(Colour.WHITE), LGC(Colour.WHITE)],
+    [LGC(Colour.WHITE), LGC(Colour.WHITE)]
+    ]
+rules = [
+Rule(RuleEnum.CONNECT_CELLS, colour = Colour.BLACK),
+Rule(RuleEnum.CONNECT_CELLS, colour = Colour.WHITE),
+Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = black2x2),
+Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = white2x2)
+]
+for rule in rules:
+    LG.add_rule(rule)
 #print(repr(LG))
 #print()
 #LG.print_rules()
