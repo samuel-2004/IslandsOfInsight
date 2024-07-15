@@ -228,6 +228,8 @@ class Rule():
     def __init__(self, rule_type: RuleEnum, **kwargs):
         self.rule_type = rule_type
         self.rule_values = kwargs
+        if 'pattern' in self.rule_values:
+            self.compute_patterns()
 
     def __str__(self):
         out = f"Rule({RuleEnum(self.rule_type)}," + '{'
@@ -235,6 +237,42 @@ class Rule():
             out += f'({key}: {val})'
         out += '}'
         return out
+
+    def compute_patterns(self) -> None:
+        """
+        Computes the patterns of the rule
+        """
+        if not self.rule_values['pattern']:
+            return
+
+        def rot90(l):
+            """
+            Rotates a 2d array 90* clockwise
+            """
+            return [list(x) for x in reversed(list(zip(*l)))]
+
+        def transpose(l):
+            """
+            Transposes a list
+            """
+            return list(map(list, zip(*l)))
+
+        pattern = self.rule_values['pattern']
+        # Create pattern variants
+        list_of_patterns = []
+        list_of_patterns.append(pattern)
+        list_of_patterns.append(transpose(pattern))
+        for _ in range(3):
+            pattern = rot90(pattern)
+            list_of_patterns.append(pattern)
+            list_of_patterns.append(transpose(pattern))
+
+        # Remove duplicates
+        list_of_patterns.sort()
+        list_of_patterns = list(k for k,_ in groupby(list_of_patterns))
+
+        # Add to rule values
+        self.rule_values['patterns'] = list_of_patterns
 
     def __repr__(self):
         out = f"Rule of type {RuleEnum(self.rule_type)} with values"
@@ -360,33 +398,35 @@ class LogicGrid():
         """
         self.rules.append(rule)
 
-    def _is_pattern_found(self, pattern: list[list[LogicGridCell]]) -> bool:
-        def rot90(l):
-            """
-            Rotates a 2d array 90* clockwise
-            """
-            return [list(x) for x in reversed(list(zip(*l)))]
+    def _is_pattern_found(self, pattern: list[list[LogicGridCell]] = None, \
+                          patterns: list[list[list[LogicGridCell]]] = None) -> bool:
+        if pattern:
+            def rot90(l):
+                """
+                Rotates a 2d array 90* clockwise
+                """
+                return [list(x) for x in reversed(list(zip(*l)))]
 
-        def transpose(l):
-            """
-            Transposes a list
-            """
-            return list(map(list, zip(*l)))
+            def transpose(l):
+                """
+                Transposes a list
+                """
+                return list(map(list, zip(*l)))
 
-        # Create pattern variants
-        list_of_patterns = []
-        list_of_patterns.append(pattern)
-        list_of_patterns.append(transpose(pattern))
-        for i in range(3):
-            pattern = rot90(pattern)
-            list_of_patterns.append(pattern)
-            list_of_patterns.append(transpose(pattern))
+            # Create pattern variants
+            patterns = []
+            patterns.append(pattern)
+            patterns.append(transpose(pattern))
+            for i in range(3):
+                pattern = rot90(pattern)
+                patterns.append(pattern)
+                patterns.append(transpose(pattern))
 
-        # Remove duplicates
-        list_of_patterns.sort()
-        list_of_patterns = list(k for k,_ in groupby(list_of_patterns))
+            # Remove duplicates
+            patterns.sort()
+            patterns = list(k for k,_ in groupby(patterns))
 
-        for p in list_of_patterns:
+        for p in patterns:
             p_height = len(p)
             p_width = len(p[0])
             for i in range(self.height - p_height + 1):
@@ -520,26 +560,21 @@ class LogicGrid():
                 # Add orthogonal cells to stack
                 if e[0] - 1 >= 0: # cell above
                     if self.g[e[0] - 1][e[1]].col == colour:
-                        new_e = (e[0] - 1, e[1])
-                        stack.append(new_e)
+                        stack.append((e[0] - 1, e[1]))
                 if e[0] + 1 < self.height: # Cell below
                     if self.g[e[0] + 1][e[1]].col == colour:
-                        new_e = (e[0] + 1, e[1])
-                        stack.append(new_e)
+                        stack.append((e[0] + 1, e[1]))
                 if e[1] - 1 >= 0: # cell to the left
                     if self.g[e[0]][e[1] - 1].col == colour:
-                        new_e = (e[0], e[1] - 1)
-                        stack.append(new_e)
+                        stack.append((e[0], e[1] - 1))
                 if e[1] + 1 < self.width: # cell to the right
                     if self.g[e[0]][e[1] + 1].col == colour:
-                        new_e = (e[0], e[1] + 1)
-                        stack.append(new_e)
+                        stack.append((e[0], e[1] + 1))
 
         for i in range(self.height):
             for j in range(self.width):
                 if self.g[i][j].inf is not None and self.g[i][j].col == col:
-                    res = dfs(i, j, number_of_symbols)
-                    if not res:
+                    if not dfs(i, j, number_of_symbols):
                         return False
 
     def _n_cells_per_region(self, number: int, col: Colour) -> bool:
@@ -582,7 +617,12 @@ class LogicGrid():
     def _test_rules(self) -> bool:
         for rule in self.rules:
             if rule.rule_type in [RuleEnum.MATCH_PATTERN, RuleEnum.MATCH_NOT_PATTERN]:
-                is_pattern_found = self._is_pattern_found(rule.rule_values["pattern"])
+                if rule.rule_values['patterns'] is not None:
+                    is_pattern_found = self._is_pattern_found( \
+                        patterns = rule.rule_values["patterns"])
+                else:
+                    is_pattern_found = self._is_pattern_found( \
+                        pattern = rule.rule_values["pattern"])
                 if (rule.rule_type == RuleEnum.MATCH_PATTERN and not is_pattern_found) or \
                    (rule.rule_type == RuleEnum.MATCH_NOT_PATTERN and is_pattern_found):
                     return False
@@ -613,7 +653,7 @@ class LogicGrid():
         If returns True, all checks passed
         If returns False, invalid solution
         """
-        if depth == 2:#12.5%
+        if depth == 42:
             print(dt.now())
         # This is the final cell, and we need to check all rules are satisfied
         if _cell_x == self.height - 1 and _cell_y == self.width - 1:
@@ -636,18 +676,15 @@ class LogicGrid():
 
         # if gray, try black and then white
         if self.g[_cell_x][_cell_y].col == Colour.EMPTY:
-            colours_to_test = [Colour.WHITE,Colour.BLACK]
-            for colour in colours_to_test:
+            for colour in (Colour.WHITE,Colour.BLACK):
                 self.g[_cell_x][_cell_y].col = colour
                 if not self._test_rules():
                     continue
-                res = self._solve(new_cell_x, new_cell_y, depth + 1)
-                if res: # If a solution is found
+                if self._solve(new_cell_x, new_cell_y, depth + 1): # If a solution is found
                     return True
             self.g[_cell_x][_cell_y].col = Colour.EMPTY
         else:
-            res = self._solve(new_cell_x, new_cell_y, depth)
-            if res: # If a solution is found
+            if self._solve(new_cell_x, new_cell_y, depth): # If a solution is found
                 return True
         return False
 
