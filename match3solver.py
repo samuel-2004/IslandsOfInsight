@@ -325,6 +325,8 @@ class LogicGrid():
                     r += 'W'
                 elif j.col == Colour.EMPTY:
                     r += ' '
+                elif j.col == Colour.NA:
+                    r += '#'
             out += r + '\n'
         return out[:-1]
 
@@ -364,7 +366,7 @@ class LogicGrid():
             Transposes a list
             """
             return list(map(list, zip(*l)))
-        
+
         # Create pattern variants
         list_of_patterns = []
         list_of_patterns.append(pattern)
@@ -386,7 +388,9 @@ class LogicGrid():
                     p_matches = True
                     for i_1 in range(p_height):
                         for j_1 in range(p_width):
-                            if self.g[i + i_1][j + j_1].col != p[i_1][j_1].col:
+                            if self.g[i + i_1][j + j_1].col == Colour.EMPTY:
+                                continue
+                            elif self.g[i + i_1][j + j_1].col != p[i_1][j_1].col:
                                 p_matches = False
                                 break
                         if not p_matches:
@@ -603,7 +607,6 @@ class LogicGrid():
             res = self._solve(new_cell_x, new_cell_y, depth + 1)
             if res: # If a solution is found
                 return True
-
 
     def solution(self) -> None:
         """
