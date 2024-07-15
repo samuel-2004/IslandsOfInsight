@@ -353,6 +353,18 @@ class LogicGrid():
         self.rules.append(rule)
 
     def _is_pattern_found(self, pattern: list[list[LogicGridCell]]) -> bool:
+        def rot90(l):
+            """
+            Rotates a 2d array 90* clockwise
+            """
+            return [list(x) for x in reversed(list(zip(*l)))]
+
+        def transpose(l):
+            """
+            Transposes a list
+            """
+            return list(map(list, zip(*l)))
+        
         # Create pattern variants
         list_of_patterns = []
         list_of_patterns.append(pattern)
@@ -577,17 +589,21 @@ class LogicGrid():
             new_cell_x = _cell_x
 
         # if gray, try black and then white
-        colours_to_test = [self.g[_cell_x][_cell_y].col]
         if self.g[_cell_x][_cell_y].col == Colour.EMPTY:
             colours_to_test = [Colour.WHITE,Colour.BLACK]
-        for colour in colours_to_test:
-            self.g[_cell_x][_cell_y].col = colour
-            if not self._test_rules():
-                continue
+            for colour in colours_to_test:
+                self.g[_cell_x][_cell_y].col = colour
+                if not self._test_rules():
+                    continue
+                res = self._solve(new_cell_x, new_cell_y, depth + 1)
+                if res: # If a solution is found
+                    return True
+            self.g[_cell_x][_cell_y].col = Colour.EMPTY
+        else:
             res = self._solve(new_cell_x, new_cell_y, depth + 1)
             if res: # If a solution is found
                 return True
-        self.g[_cell_x][_cell_y].col = Colour.EMPTY
+
 
     def solution(self) -> None:
         """
@@ -619,6 +635,8 @@ def interpret_lg(grid: list[str]) -> LogicGrid:
                 logic_grid[-1].append(LGC(Colour.WHITE))
             elif char == 'b':
                 logic_grid[-1].append(LGC(Colour.BLACK))
+            elif char == '#':
+                logic_grid[-1].append(LGC(Colour.NA))
             else:
                 logic_grid[-1].append(LGC(Colour.EMPTY))
     return LogicGrid(logic_grid)
@@ -657,25 +675,13 @@ Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = white2x2)
 ]
 for rule in rules:
     LG.add_rule(rule)
-#print(repr(LG))
-#print()
-#LG.print_rules()
+
+
 #emp = LG.num_empty()
 #print(emp)
 #print(2 ** emp)
 #LG.solution()
 
-def rot90(l):
-    """
-    Rotates a 2d array 90* clockwise
-    """
-    return [list(x) for x in reversed(list(zip(*l)))]
-
-def transpose(l):
-    """
-    Transposes a list
-    """
-    return list(map(list, zip(*l)))
 
 pattern = [
     [LGC(Colour.BLACK), LGC(Colour.WHITE), LGC(Colour.BLACK)],
