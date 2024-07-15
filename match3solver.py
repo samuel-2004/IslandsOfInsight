@@ -5,6 +5,7 @@ from datetime import datetime as dt
 import copy
 from enum import Enum
 from itertools import groupby
+from re import findall
 
 class Match3():
     """
@@ -261,7 +262,6 @@ class Colour(Enum):
     def __eq__(self,obj):
         return self.value == obj.value
 
-
 class LogicGridCell():
     """
     Defines a class to contain logic grid cell info
@@ -281,6 +281,12 @@ class LogicGridCell():
 
     def __eq__(self, obj):
         return self.col == obj.col
+
+    def set_info(self, info):
+        """
+        Sets info
+        """
+        self.inf = info
 
 LGC = LogicGridCell
 
@@ -388,7 +394,7 @@ class LogicGrid():
                     p_matches = True
                     for i_1 in range(p_height):
                         for j_1 in range(p_width):
-                            if self.g[i + i_1][j + j_1].col == Colour.EMPTY:
+                            if p[i_1][j_1].col == Colour.EMPTY:
                                 continue
                             elif self.g[i + i_1][j + j_1].col != p[i_1][j_1].col:
                                 p_matches = False
@@ -404,7 +410,9 @@ class LogicGrid():
         #print(repr(self))
         # Function to perform DFS and mark visited 1s
         def dfs(x, y, visited):
-            if x < 0 or y < 0 or x >= self.height or y >= self.width or self.g[x][y].col not in (colour, Colour.EMPTY) or visited[x][y]:
+            if x < 0 or y < 0 or x >= self.height or y >= self.width:
+                return
+            if self.g[x][y].col not in (colour, Colour.EMPTY) or visited[x][y]:
                 return
             visited[x][y] = True
             directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
@@ -425,7 +433,7 @@ class LogicGrid():
             return True  # No '1's in the self.g, considered as connected
 
         # Initialize visited array and start DFS from the first '1'
-        visited = [[False for _ in range(self.height)] for _ in range(self.width)]
+        visited = [[False for _ in range(self.width)] for _ in range(self.height)]
         dfs(start[0], start[1], visited)
 
         # Check if all '1's are visited
@@ -496,14 +504,14 @@ class LogicGrid():
             stack = [(x, y)]
             visited = []
             colour = self.g[x][y].col
-            cells_in_area = 0
             symbols_in_area = 0
 
             while stack:
-                e = stack.pop(0)
+                e = stack.pop()
+                if e in visited:
+                    continue
                 visited.append(e)
                 # Update values
-                cells_in_area += 1
                 if self.g[e[0]][e[1]].inf is not None:
                     symbols_in_area += 1
                     if symbols_in_area > num_symbols:
@@ -513,25 +521,19 @@ class LogicGrid():
                 if e[0] - 1 >= 0: # cell above
                     if self.g[e[0] - 1][e[1]].col == colour:
                         new_e = (e[0] - 1, e[1])
-                        if new_e not in visited:
-                            stack.append(new_e)
+                        stack.append(new_e)
                 if e[0] + 1 < self.height: # Cell below
                     if self.g[e[0] + 1][e[1]].col == colour:
                         new_e = (e[0] + 1, e[1])
-                        if new_e not in visited:
-                            stack.append(new_e)
+                        stack.append(new_e)
                 if e[1] - 1 >= 0: # cell to the left
                     if self.g[e[0]][e[1] - 1].col == colour:
                         new_e = (e[0], e[1] - 1)
-                        if new_e not in visited:
-                            stack.append(new_e)
+                        stack.append(new_e)
                 if e[1] + 1 < self.width: # cell to the right
                     if self.g[e[0]][e[1] + 1].col == colour:
                         new_e = (e[0], e[1] + 1)
-                        if new_e not in visited:
-                            stack.append(new_e)
-
-            pass
+                        stack.append(new_e)
 
         for i in range(self.height):
             for j in range(self.width):
@@ -592,11 +594,17 @@ class LogicGrid():
                 do_cells_connect = self._do_all_of_colour_connect(rule.rule_values["colour"])
                 if not do_cells_connect:
                     return False
-            elif rule.rule_type == RuleEnum.N_SYMBOL_PER_COLOUR:
+            elif rule.rule_type == RuleEnum.N_CELLS_PER_REGION:
                 num = rule.rule_values["number"]
                 col = rule.rule_values["colour"]
-                if not self._n_symbols_per_colour_area(num, col):
+                if not self._n_cells_per_region(num, col):
                     return False
+            elif rule.rule_type == RuleEnum.N_SYMBOL_PER_COLOUR:
+                if self.num_empty() == 0:
+                    num = rule.rule_values["number"]
+                    col = rule.rule_values["colour"]
+                    if not self._n_symbols_per_colour_area(num, col):
+                        return False
         return True
 
     def _solve(self, _cell_x = 0, _cell_y = 0, depth = 0) -> bool:
@@ -605,7 +613,7 @@ class LogicGrid():
         If returns True, all checks passed
         If returns False, invalid solution
         """
-        if depth == 49:
+        if depth == 2:#12.5%
             print(dt.now())
         # This is the final cell, and we need to check all rules are satisfied
         if _cell_x == self.height - 1 and _cell_y == self.width - 1:
@@ -638,9 +646,10 @@ class LogicGrid():
                     return True
             self.g[_cell_x][_cell_y].col = Colour.EMPTY
         else:
-            res = self._solve(new_cell_x, new_cell_y, depth + 1)
+            res = self._solve(new_cell_x, new_cell_y, depth)
             if res: # If a solution is found
                 return True
+        return False
 
     def solution(self) -> None:
         """
@@ -678,49 +687,75 @@ def interpret_lg(grid: list[str]) -> LogicGrid:
                 logic_grid[-1].append(LGC(Colour.EMPTY))
     return LogicGrid(logic_grid)
 
-LG = interpret_lg([
-"EEEBEEEEE",
-"EEEEEEEEE",
-"EBEBWBEBE",
-"BEBEEEBEE",
-"EEWEBEWEE",
-"EEWEEEBEW",
-"EWEBWBEWE",
-"EWEEEEEEE",
-"EEEEWEEEE"
-    ])#"""
+def create_solid_shape(string = None, c: Colour = None, w: int = None, \
+        h: int = None) -> list[list[LogicGridCell]]:
+    """
+    Interprets a string and converts it to create a solid shape
+    """
+    # Interpret string
+    if string is not None:
+        string = string.lower()
+        # Interpret colour
+        if 'black' in string:
+            c = Colour.BLACK
+        elif 'white' in string:
+            c = Colour.WHITE
+        # Get widht and height
+        l = list(map(int, findall(r'\d+', string)))
+        if len(l) == 2:
+            w = l[0]
+            h = l[1]
+        else:
+            raise ValueError("String had one number in it")
 
-"""
-LG = interpret_lg([
-"EBW",
-"BWE",
-"BEB"
-    ])"""
+    out = []
+    for _ in range(h):
+        out.append([])
+        for __ in range(w):
+            out[-1].append(LogicGridCell(c))
+    return out
 
-black3x1 = [
-    [LGC(Colour.BLACK), LGC(Colour.BLACK), LGC(Colour.BLACK)]
-    ]
-white2x2 = [
-    [LGC(Colour.WHITE), LGC(Colour.WHITE)],
-    [LGC(Colour.WHITE), LGC(Colour.WHITE)]
-    ]
+
+
+
+LG = interpret_lg([
+"EBEBEEWEEE",
+"EWEBEWEEEW",
+"EEWEBEBWEE",
+"WEEEEEWBEB",
+"EWEEBWEEBE",
+"EBEEWBEEBE",
+"BEBWEEEEEW",
+"EEWBEWEBEE",
+"WEEEBEWEBE",
+"EEEWEEBEWE"
+    ])
+LG.g[0][3].inf = 'A'
+LG.g[0][6].inf = 'B'
+LG.g[3][0].inf = 'C'
+LG.g[3][9].inf = 'D'
+LG.g[6][0].inf = 'E'
+LG.g[6][9].inf = 'F'
+LG.g[9][3].inf = 'G'
+LG.g[9][6].inf = 'H'
+
+black2x2 = create_solid_shape("black2x2")
+white2x2 = create_solid_shape("white2x2")
+
 rules = [
-Rule(RuleEnum.CONNECT_CELLS, colour = Colour.BLACK),
-Rule(RuleEnum.CONNECT_CELLS, colour = Colour.WHITE),
-Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = black3x1),
-Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = white2x2)
+Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = black2x2),
+Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = white2x2),
+Rule(RuleEnum.N_SYMBOL_PER_COLOUR, number = 1, colour = Colour.WHITE),
+Rule(RuleEnum.N_SYMBOL_PER_COLOUR, number = 1, colour = Colour.BLACK)
 ]
 for rule in rules:
     LG.add_rule(rule)
 
+emp = LG.num_empty()
+print(emp)
+print(2 ** emp)
+print(LG.height)
+print(LG.width)
+print('\n\n\n')
 
-#emp = LG.num_empty()
-#print(emp)
-#print(2 ** emp)
-#LG.solution()
-
-
-pattern = [
-    [LGC(Colour.BLACK), LGC(Colour.WHITE), LGC(Colour.BLACK)],
-    [LGC(Colour.WHITE), LGC(Colour.BLACK), LGC(Colour.WHITE)]
-    ]
+LG.solution()
