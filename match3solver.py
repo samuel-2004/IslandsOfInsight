@@ -4,6 +4,7 @@ Islands of Insight puzzle solvers
 from datetime import datetime as dt
 import copy
 from enum import Enum
+from itertools import groupby
 
 class Match3():
     """
@@ -208,6 +209,7 @@ class RuleEnum(Enum):
     AREA_NUMBERS_ARE_ONE_OFF = 3
     CONNECT_CELLS = 4
     N_SYMBOL_PER_COLOUR = 5
+    N_CELLS_PER_REGION = 6
 
 class Rule():
     """
@@ -253,6 +255,12 @@ class Colour(Enum):
     BLACK = -1
     EMPTY = 0
     WHITE = 1
+    NA = 1000
+    def __lt__(self, obj):
+        return self.value < obj.value
+    def __eq__(self,obj):
+        return self.value == obj.value
+
 
 class LogicGridCell():
     """
@@ -264,8 +272,15 @@ class LogicGridCell():
 
     def __str__(self):
         return f'LogicGridCell({Colour(self.col)},{self.inf})'
+
     def __repr__(self):
         return str(self)
+
+    def __lt__(self, obj):
+        return self.col < obj.col
+
+    def __eq__(self, obj):
+        return self.col == obj.col
 
 LGC = LogicGridCell
 
@@ -338,20 +353,34 @@ class LogicGrid():
         self.rules.append(rule)
 
     def _is_pattern_found(self, pattern: list[list[LogicGridCell]]) -> bool:
-        pattern_height = len(pattern)
-        pattern_width = len(pattern[0])
-        for i in range(self.height - pattern_height + 1):
-            for j in range(self.width - pattern_width + 1):
-                pattern_matches = True
-                for i_1 in range(pattern_height):
-                    for j_1 in range(pattern_width):
-                        if self.g[i + i_1][j + j_1].col != pattern[i_1][j_1].col:
-                            pattern_matches = False
+        # Create pattern variants
+        list_of_patterns = []
+        list_of_patterns.append(pattern)
+        list_of_patterns.append(transpose(pattern))
+        for i in range(3):
+            pattern = rot90(pattern)
+            list_of_patterns.append(pattern)
+            list_of_patterns.append(transpose(pattern))
+
+        # Remove duplicates
+        list_of_patterns.sort()
+        list_of_patterns = list(k for k,_ in groupby(list_of_patterns))
+
+        for p in list_of_patterns:
+            p_height = len(p)
+            p_width = len(p[0])
+            for i in range(self.height - p_height + 1):
+                for j in range(self.width - p_width + 1):
+                    p_matches = True
+                    for i_1 in range(p_height):
+                        for j_1 in range(p_width):
+                            if self.g[i + i_1][j + j_1].col != p[i_1][j_1].col:
+                                p_matches = False
+                                break
+                        if not p_matches:
                             break
-                    if not pattern_matches:
-                        break
-                if pattern_matches:
-                    return True
+                    if p_matches:
+                        return True
         return False
 
     def _do_all_of_colour_connect(self, colour: int) -> bool:
@@ -495,6 +524,9 @@ class LogicGrid():
                     if not res:
                         return False
 
+    def _n_cells_per_region(self, number: int, col: Colour) -> bool:
+        pass
+
     def _test_rules(self) -> bool:
         for rule in self.rules:
             if rule.rule_type in [RuleEnum.MATCH_PATTERN, RuleEnum.MATCH_NOT_PATTERN]:
@@ -610,9 +642,8 @@ LG = interpret_lg([
 "BEB"
     ])"""
 
-black2x2 = [
-    [LGC(Colour.BLACK), LGC(Colour.BLACK)],
-    [LGC(Colour.BLACK), LGC(Colour.BLACK)]
+black3x1 = [
+    [LGC(Colour.BLACK), LGC(Colour.BLACK), LGC(Colour.BLACK)]
     ]
 white2x2 = [
     [LGC(Colour.WHITE), LGC(Colour.WHITE)],
@@ -621,7 +652,7 @@ white2x2 = [
 rules = [
 Rule(RuleEnum.CONNECT_CELLS, colour = Colour.BLACK),
 Rule(RuleEnum.CONNECT_CELLS, colour = Colour.WHITE),
-Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = black2x2),
+Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = black3x1),
 Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = white2x2)
 ]
 for rule in rules:
@@ -629,7 +660,24 @@ for rule in rules:
 #print(repr(LG))
 #print()
 #LG.print_rules()
-emp = LG.num_empty()
-print(emp)
-print(2 ** emp)
-LG.solution()
+#emp = LG.num_empty()
+#print(emp)
+#print(2 ** emp)
+#LG.solution()
+
+def rot90(l):
+    """
+    Rotates a 2d array 90* clockwise
+    """
+    return [list(x) for x in reversed(list(zip(*l)))]
+
+def transpose(l):
+    """
+    Transposes a list
+    """
+    return list(map(list, zip(*l)))
+
+pattern = [
+    [LGC(Colour.BLACK), LGC(Colour.WHITE), LGC(Colour.BLACK)],
+    [LGC(Colour.WHITE), LGC(Colour.BLACK), LGC(Colour.WHITE)]
+    ]
