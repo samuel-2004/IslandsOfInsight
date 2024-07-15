@@ -541,7 +541,41 @@ class LogicGrid():
                         return False
 
     def _n_cells_per_region(self, number: int, col: Colour) -> bool:
-        pass
+        visited = []
+        stack = []
+        count = 0
+        for i in range(self.height):
+            for j in range(self.width):
+                if self.g[i][j].col != col:
+                    continue
+                if (i, j) in visited:
+                    continue
+                # At an unvisited cell, must check all cells around it to see if how big area is
+                count = 1
+                if j < self.width - 1: # Add cell to right
+                    stack.append((i, j + 1))
+                if i < self.height - 1: # Add cell below
+                    stack.append((i + 1, j))
+                while stack:
+                    s = stack.pop()
+                    visited.append(s)
+                    if self.g[s[0]][s[1]].col != col:
+                        continue
+                    count += 1
+                    if count > number: # Too many in region
+                        return False
+                    # Add surrounding cells to stack
+                    if s[1] < self.width - 1: # Add cell to right
+                        stack.append((s[0], s[1] + 1))
+                    if s[1] > 0: # Add cell to left
+                        stack.append((s[0], s[1] - 1))
+                    if s[0] < self.height - 1: # Add cell below
+                        stack.append((i + 1, j))
+                    if s[0] > 0: # Add cell above
+                        stack.append((i - 1, j))
+                if count < number: # Not enough in region
+                    return False
+        return True
 
     def _test_rules(self) -> bool:
         for rule in self.rules:
