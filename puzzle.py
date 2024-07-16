@@ -781,3 +781,6 @@ def create_solid_shape(string = None, c: Colour = None, w: int = None, \
             out[-1].append(LogicGridCell(c))
     return out
 
+def your_function():
+    print("hello world")
+    return "hello world"
