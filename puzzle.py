@@ -347,13 +347,17 @@ class LogicGrid():
 
     func `solution` prints a solution to the LogicGrid puzzle to console
     """
-    def __init__(self, grid: list[list[LogicGridCell]], rules: list[Rule] = []):
+    def __init__(self, grid: list[list[LogicGridCell]], rules: list[Rule] = [], \
+                 linked_cells: list[list[(int, int)]] = []):
         self.g = grid
         self.width = len(self.g[0])
         self.height = len(self.g)
         self.attempts = 0
 
         self.rules = rules
+        self.linked_cells = linked_cells
+        if len(linked_cells) > 0:
+            self.sort_linked_cells()
 
     def __str__(self) -> str:
         return str(self.g)
@@ -397,6 +401,21 @@ class LogicGrid():
         Adds a new rule
         """
         self.rules.append(rule)
+
+    def sort_linked_cells(self):
+        """
+        Sorts each list of linked cells, so that we don't 
+        have to look through every cell when scanning the grid
+        """
+        for ls in self.linked_cells:
+            ls.sort()
+
+    def add_linked_cells(self, ls: list[(int,int)]):
+        """
+        Adds the linked cell to the list
+        """
+        self.linked_cells.append(ls)
+        self.sort_linked_cells()
 
     def _is_pattern_found(self, pattern: list[list[LogicGridCell]] = None, \
                           patterns: list[list[list[LogicGridCell]]] = None) -> bool:
@@ -449,13 +468,13 @@ class LogicGrid():
         #print("Colour =",colour)
         #print(repr(self))
         # Function to perform DFS and mark visited 1s
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
         def dfs(x, y, visited):
             if x < 0 or y < 0 or x >= self.height or y >= self.width:
                 return
             if self.g[x][y].col not in (colour, Colour.EMPTY) or visited[x][y]:
                 return
             visited[x][y] = True
-            directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
             for dx, dy in directions:
                 dfs(x + dx, y + dy, visited)
 
@@ -646,6 +665,9 @@ class LogicGrid():
                     return False
         return True
 
+    def _set_linked_cell(self, index: int, colour: Colour):
+        pass
+
     def _solve(self, _cell_x = 0, _cell_y = 0, depth = 0) -> bool:
         """
         Provides a solution to the puzzle
@@ -676,8 +698,15 @@ class LogicGrid():
 
         # if gray, try black and then white
         if self.g[_cell_x][_cell_y].col == Colour.EMPTY:
+            cells = []
+            for ls in self.linked_cells:
+                if ls[0] == (_cell_x,_cell_y):
+                    cells = ls[1:]
             for colour in (Colour.WHITE,Colour.BLACK):
                 self.g[_cell_x][_cell_y].col = colour
+                if len(cells) > 0:
+                    for c in cells:
+                        self.g[c[0]][c[1]].col = colour
                 if not self._test_rules():
                     continue
                 if self._solve(new_cell_x, new_cell_y, depth + 1): # If a solution is found
@@ -752,48 +781,3 @@ def create_solid_shape(string = None, c: Colour = None, w: int = None, \
             out[-1].append(LogicGridCell(c))
     return out
 
-
-
-
-LG = interpret_lg([
-"EBEBEEWEEE",
-"EWEBEWEEEW",
-"EEWEBEBWEE",
-"WEEEEEWBEB",
-"EWEEBWEEBE",
-"EBEEWBEEBE",
-"BEBWEEEEEW",
-"EEWBEWEBEE",
-"WEEEBEWEBE",
-"EEEWEEBEWE"
-    ])
-LG.g[0][3].inf = 'A'
-LG.g[0][6].inf = 'B'
-LG.g[3][0].inf = 'C'
-LG.g[3][9].inf = 'D'
-LG.g[6][0].inf = 'E'
-LG.g[6][9].inf = 'F'
-LG.g[9][3].inf = 'G'
-LG.g[9][6].inf = 'H'
-
-black2x2 = create_solid_shape("black2x2")
-white2x2 = create_solid_shape("white2x2")
-
-rules = [
-Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = black2x2),
-Rule(RuleEnum.MATCH_NOT_PATTERN, pattern = white2x2),
-Rule(RuleEnum.N_SYMBOL_PER_COLOUR, number = 1, colour = Colour.WHITE),
-Rule(RuleEnum.N_SYMBOL_PER_COLOUR, number = 1, colour = Colour.BLACK)
-]
-for rule in rules:
-    LG.add_rule(rule)
-
-emp = LG.num_empty()
-print(emp)
-print(2 ** emp)
-print(LG.height)
-print(LG.width)
-print('\n\n\n')
-
-LG.solution()
-print(LG.attempts)
