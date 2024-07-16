@@ -555,6 +555,7 @@ class LogicGrid():
                 if self.g[e[0]][e[1]].inf is not None:
                     symbols_in_area += 1
                     if symbols_in_area > num_symbols:
+                        #print(f'{e[0]},{e[1]}')
                         return False
 
                 # Add orthogonal cells to stack
@@ -570,12 +571,14 @@ class LogicGrid():
                 if e[1] + 1 < self.width: # cell to the right
                     if self.g[e[0]][e[1] + 1].col == colour:
                         stack.append((e[0], e[1] + 1))
+            return True
 
         for i in range(self.height):
             for j in range(self.width):
                 if self.g[i][j].inf is not None and self.g[i][j].col == col:
                     if not dfs(i, j, number_of_symbols):
                         return False
+        return True
 
     def _n_cells_per_region(self, number: int, col: Colour) -> bool:
         visited = []
@@ -627,12 +630,10 @@ class LogicGrid():
                    (rule.rule_type == RuleEnum.MATCH_NOT_PATTERN and is_pattern_found):
                     return False
             elif rule.rule_type in [RuleEnum.AREA_NUMBER, RuleEnum.AREA_NUMBERS_ARE_ONE_OFF]:
-                one_off = rule.rule_type != RuleEnum.AREA_NUMBER
-                if not self._check_area_numbers(one_off):
+                if not self._check_area_numbers(rule.rule_type != RuleEnum.AREA_NUMBER):
                     return False
             elif rule.rule_type == RuleEnum.CONNECT_CELLS:
-                do_cells_connect = self._do_all_of_colour_connect(rule.rule_values["colour"])
-                if not do_cells_connect:
+                if not self._do_all_of_colour_connect(rule.rule_values["colour"]):
                     return False
             elif rule.rule_type == RuleEnum.N_CELLS_PER_REGION:
                 num = rule.rule_values["number"]
@@ -640,11 +641,9 @@ class LogicGrid():
                 if not self._n_cells_per_region(num, col):
                     return False
             elif rule.rule_type == RuleEnum.N_SYMBOL_PER_COLOUR:
-                if self.num_empty() == 0:
-                    num = rule.rule_values["number"]
-                    col = rule.rule_values["colour"]
-                    if not self._n_symbols_per_colour_area(num, col):
-                        return False
+                if not self._n_symbols_per_colour_area(rule.rule_values["number"], \
+                                rule.rule_values["colour"]):
+                    return False
         return True
 
     def _solve(self, _cell_x = 0, _cell_y = 0, depth = 0) -> bool:
@@ -653,6 +652,7 @@ class LogicGrid():
         If returns True, all checks passed
         If returns False, invalid solution
         """
+        self.attempts += 1
         if depth == 42:
             print(dt.now())
         # This is the final cell, and we need to check all rules are satisfied
@@ -796,3 +796,4 @@ print(LG.width)
 print('\n\n\n')
 
 LG.solution()
+print(LG.attempts)
