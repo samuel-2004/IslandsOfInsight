@@ -9,16 +9,20 @@ class MyFrame(wx.Frame):
         #self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
         self.height = 5
         self.width = 6
-        self.buttons = []
-        self.grid = [[LogicGridCell(Colour.NA) for i in range(self.height)] for j in range(self.width)]
+        self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.height)] for _1 in range(self.width)]
+
+
+        self.topnav_height = 30
 
         self.number = 0  # Initial number
+        self.buttons = []
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
         self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
         self.Show(True)
 
+        self.create_top_controls()
         self.create_buttons()
 
     def brush_colour(self, col: Colour):
@@ -50,7 +54,7 @@ class MyFrame(wx.Frame):
         x = self.get_cell_width()
         h = x * self.height
         w = x * self.width
-        wx.Window.SetSize(self, h + 16, w + 39)
+        wx.Window.SetSize(self, h + 16, w + 39 + self.topnav_height)
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
@@ -77,10 +81,13 @@ class MyFrame(wx.Frame):
             return Colour.NA
 
     def create_buttons(self):
+        c_width = self.get_cell_width()
         for i in range(self.height):
             row_buttons = []
             for j in range(self.width):
-                btn = wx.Button(self, label="+", size=(30, 30), pos=(self.get_cell_width() * i + self.get_cell_width() - 35, self.get_cell_width() * j + 5))
+                pos = (c_width * (i + 1) - 25, c_width * j + 5 + self.topnav_height)
+                print(pos)
+                btn = wx.Button(self, label="+", size=(20, 20), pos=pos)
                 btn.Bind(wx.EVT_BUTTON, self.on_button_click)
                 btn.cell_coords = (i, j)
                 row_buttons.append(btn)
@@ -154,26 +161,11 @@ class MyFrame(wx.Frame):
                 # Draw cell
                 dc.SetPen(wx.Pen(wx.Colour(0, 0, 0), 1))
                 dc.SetBrush(self.brush_colour(self.grid[i][j].col))
-                dc.DrawRectangle(x*j,x*i,x,x)
-                # Draw plus icon
-                self.draw_plus_icon(dc, x * j, x * i, x)
+                dc.DrawRectangle(x*j,x*i + self.topnav_height,x,x)
                 # Draw cell info
                 if self.grid[i][j].inf is not None and self.grid[i][j].col != Colour.NA:
                     dc.SetTextForeground(self.text_colour(self.grid[i][j].col))
-                    dc.DrawText(self.grid[i][j].inf, int(x * ( j + 0.2)) , int(x *( i + 0.2)))
-
-    def draw_plus_icon(self, dc, x, y, cell_size):
-        plus_size = cell_size // 5
-        half_plus = plus_size // 2
-
-        dc.SetPen(wx.Pen(wx.Colour(90, 90, 90), 2))  # Grey color for plus icon
-        center_x = x + cell_size - half_plus - 5  # Adjust the position slightly
-        center_y = y + half_plus + 5  # Adjust the position slightly
-
-        # Vertical line of plus
-        dc.DrawLine(center_x, center_y - half_plus, center_x, center_y + half_plus)
-        # Horizontal line of plus
-        dc.DrawLine(center_x - half_plus, center_y, center_x + half_plus, center_y)
+                    dc.DrawText(self.grid[i][j].inf, int(x * ( j + 0.2)) , int(x *( i + 0.2) + self.topnav_height))
 
     def click(self, x, y):
         cell_width = self.get_cell_width()
