@@ -169,8 +169,10 @@ class MyFrame(wx.Frame):
 
     def click(self, x, y):
         cell_width = self.get_cell_width()
+        if x < self.topnav_height:
+            return
         x = int((x - self.topnav_height) / cell_width)
-        y = int((y - self.topnav_height) / cell_width)
+        y = int(y / cell_width)
         self.grid[x][y].col = self.get_next_colour(self.grid[x][y].col)
         self.DoDrawing()
 
