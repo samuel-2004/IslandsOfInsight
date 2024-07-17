@@ -12,6 +12,8 @@ class MyFrame(wx.Frame):
         self.buttons = []
         self.grid = [[LogicGridCell(Colour.NA) for i in range(self.height)] for j in range(self.width)]
 
+        self.number = 0  # Initial number
+
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
         self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
@@ -84,15 +86,53 @@ class MyFrame(wx.Frame):
                 row_buttons.append(btn)
             self.buttons.append(row_buttons)
 
+    def create_top_controls(self):
+        panel = wx.Panel(self)
+        sizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.number_ctrl = wx.TextCtrl(panel, value=str(self.number), style=wx.TE_PROCESS_ENTER, size=(50, -1))
+        self.number_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_number_change)
+
+        btn_plus = wx.Button(panel, label="+")
+        btn_plus.Bind(wx.EVT_BUTTON, self.on_increment)
+
+        btn_minus = wx.Button(panel, label="-")
+        btn_minus.Bind(wx.EVT_BUTTON, self.on_decrement)
+
+        sizer.Add(btn_plus, 0, wx.ALL | wx.CENTER, 5)
+        sizer.Add(self.number_ctrl, 0, wx.ALL | wx.CENTER, 5)
+        sizer.Add(btn_minus, 0, wx.ALL | wx.CENTER, 5)
+
+        panel.SetSizer(sizer)
+
+    def on_increment(self, event):
+        self.number += 1
+        self.update_number_display()
+
+    def on_decrement(self, event):
+        self.number -= 1
+        self.update_number_display()
+
+    def update_number_display(self):
+        self.number_ctrl.SetValue(str(self.number))
+
+    def on_number_change(self, event):
+        try:
+            self.number = int(self.number_ctrl.GetValue())
+        except ValueError:
+            pass
+
     def on_button_click(self, event) -> None:
         button = event.GetEventObject()
         coords = button.cell_coords
+        coords = (coords[1], coords[0])
         txt = self.grid[coords[0]][coords[1]].inf
         if txt is None:
             txt = ""
         inp = self.show_input_dialog(coords, txt)
-        if inp is not None:
+        if inp != self.grid[coords[0]][coords[1]].inf or inp is not None:
             self.grid[coords[0]][coords[1]].inf = inp
+            self.DoDrawing()
 
     def show_input_dialog(self, coords: tuple[int, int], default: str = "") -> str | None:
         dlg = wx.TextEntryDialog(self, "Enter value for cell:", f"Cell {coords}", f"{default}")
