@@ -1,133 +1,158 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
-from re import findall
-from puzzle import your_function  # Replace with your actual library and function
+import wx
+from puzzle import your_function
+from puzzle import Colour, LogicGridCell
 
-class GridApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Grid Creator")
-        self.root.resizable(False, False)
-        self.root.configure(background='lavender')
+class MyFrame(wx.Frame):
+    def __init__(self, parent, title):
+        wx.Frame.__init__(self, parent, title=title, size=(200,100), \
+                style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
+        #self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
+        self.height = 5
+        self.width = 6
+        self.buttons = []
+        self.grid = [[LogicGridCell(Colour.NA) for i in range(self.height)] for j in range(self.width)]
 
-        self.rows_var = tk.IntVar(value=5)
-        self.columns_var = tk.IntVar(value=5)
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+        self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
+        self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
+        self.Show(True)
 
-        self.create_input_fields()
-        self.grid_frame = ttk.Frame(self.root)
-        self.grid_frame.grid(row=2, column=0, columnspan=5, pady=10, sticky="nsew")
+        self.create_buttons()
 
-        self.compute_button = ttk.Button(self.root, text="Compute", command=self.compute)
-        self.compute_button.grid(row=3, column=0, columnspan=5, pady=5)
+    def brush_colour(self, col: Colour):
+        """
+        gets the brush for each colour
+        """
+        if col == Colour.NA:
+            return wx.Brush(wx.Colour(50, 50, 50))
+        elif col == Colour.WHITE:
+            return wx.Brush(wx.Colour(255,255,255))
+        elif col == Colour.BLACK:
+            return wx.Brush(wx.Colour(0,0,0))
+        elif col == Colour.EMPTY:
+            return wx.Brush(wx.Colour(100,100,100))
 
-        self.root.grid_rowconfigure(2, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
+    def text_colour(self, colour_of_cell: Colour) -> Colour:
+        """
+        What colour should the text be based on the cell colour
+        """
+        if colour_of_cell == Colour.NA or colour_of_cell == Colour.BLACK:
+            return wx.Colour(255,255,255)
+        else:
+            return wx.Colour(0,0,0)
 
-        self.rows_var.trace_add('write', self.create_grid)
-        self.columns_var.trace_add('write', self.create_grid)
+    def get_cell_width(self):
+        return int(min(70 - (0.05 * (self.height ** 2)), 70 - (0.05 * (self.width ** 2))))
 
-        self.current_color = None
-        self.create_grid()
+    def resize_window(self):
+        x = self.get_cell_width()
+        h = x * self.height
+        w = x * self.width
+        wx.Window.SetSize(self, h + 16, w + 39)
 
-    def create_input_fields(self):
-        input_frame = ttk.Frame(self.root)
-        input_frame.grid(row=0, column=0, padx=5, pady=5, columnspan=5, sticky="ew")
+    def OnPaint(self, event):
+        dc = wx.PaintDC(self)
+        self.DoDrawing(dc)
 
-        ttk.Label(input_frame, text="Rows:").grid(row=0, column=0, padx=5, pady=5)
-        self.rows_entry = ttk.Entry(input_frame, textvariable=self.rows_var, width=5)
-        self.rows_entry.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Button(input_frame, text="-", command=lambda: self.increment_decrement(self.rows_var, -1)).grid(row=0, column=2, padx=5, pady=5)
-        ttk.Button(input_frame, text="+", command=lambda: self.increment_decrement(self.rows_var, 1)).grid(row=0, column=3, padx=5, pady=5)
+    def DoDrawing(self, dc=None):
+        if dc is None:
+            dc = wx.ClientDC(self)
 
-        ttk.Label(input_frame, text="Columns:").grid(row=1, column=0, padx=5, pady=5)
-        self.columns_entry = ttk.Entry(input_frame, textvariable=self.columns_var, width=5)
-        self.columns_entry.grid(row=1, column=1, padx=5, pady=5)
-        ttk.Button(input_frame, text="-", command=lambda: self.increment_decrement(self.columns_var, -1)).grid(row=1, column=2, padx=5, pady=5)
-        ttk.Button(input_frame, text="+", command=lambda: self.increment_decrement(self.columns_var, 1)).grid(row=1, column=3, padx=5, pady=5)
+        self.resize_window()
+        self.draw_grid(dc)
 
-    def increment_decrement(self, var, value):
-        current_value = var.get()
-        if current_value + value >= 0:
-            var.set(current_value + value)
+    def get_next_colour(self, col : Colour) -> Colour:
+        """
+        gets the next colour
+        """
+        if col == Colour.NA:
+            return Colour.WHITE
+        elif col == Colour.WHITE:
+            return Colour.BLACK
+        elif col == Colour.BLACK:
+            return Colour.EMPTY
+        elif col == Colour.EMPTY:
+            return Colour.NA
 
-    def create_grid(self, *args):
-        for widget in self.grid_frame.winfo_children():
-            widget.destroy()
+    def create_buttons(self):
+        for i in range(self.height):
+            row_buttons = []
+            for j in range(self.width):
+                btn = wx.Button(self, label="+", size=(30, 30), pos=(self.get_cell_width() * i + self.get_cell_width() - 35, self.get_cell_width() * j + 5))
+                btn.Bind(wx.EVT_BUTTON, self.on_button_click)
+                btn.cell_coords = (i, j)
+                row_buttons.append(btn)
+            self.buttons.append(row_buttons)
 
-        try:
-            rows = self.rows_var.get()
-            columns = self.columns_var.get()
+    def on_button_click(self, event) -> None:
+        button = event.GetEventObject()
+        coords = button.cell_coords
+        txt = self.grid[coords[0]][coords[1]].inf
+        if txt is None:
+            txt = ""
+        inp = self.show_input_dialog(coords, txt)
+        if inp is not None:
+            self.grid[coords[0]][coords[1]].inf = inp
 
-            for r in range(rows):
-                for c in range(columns):
-                    cell_frame = ttk.Frame(self.grid_frame, width=50, height=50)
-                    cell_frame.grid(row=r, column=c, padx=1, pady=1, sticky="nsew")
+    def show_input_dialog(self, coords: tuple[int, int], default: str = "") -> str | None:
+        dlg = wx.TextEntryDialog(self, "Enter value for cell:", f"Cell {coords}", f"{default}")
 
-                    cell = tk.Canvas(cell_frame, width=50, height=50, bg="SystemButtonFace",
-                                     borderwidth=1, relief="solid", highlightthickness=1,
-                                     highlightbackground="light grey")
-                    cell.pack(fill=tk.BOTH, expand=True)
+        user_input = None
+        if dlg.ShowModal() == wx.ID_OK:
+            user_input = dlg.GetValue()
 
-                    plus_button = ttk.Button(cell_frame, text="+", command=lambda r=r, c=c: self.add_text(r, c), width=3)
-                    plus_button.place(relx=1.0, rely=0.0, anchor='ne')
+        dlg.Destroy()
+        return user_input
 
-                    cell.bind("<Button-1>", self.start_paint)
-                    cell.bind("<B1-Motion>", self.paint)
+    def draw_grid(self, dc) -> None:
+        x = self.get_cell_width()
+        font = wx.Font(12, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        dc.SetFont(font)
 
-            for r in range(rows):
-                self.grid_frame.rowconfigure(r, weight=1, minsize=50)
-            for c in range(columns):
-                self.grid_frame.columnconfigure(c, weight=1, minsize=50)
+        for i in range(self.width):
+            for j in range(self.height):
+                # Draw cell
+                dc.SetPen(wx.Pen(wx.Colour(0, 0, 0), 1))
+                dc.SetBrush(self.brush_colour(self.grid[i][j].col))
+                dc.DrawRectangle(x*j,x*i,x,x)
+                # Draw plus icon
+                self.draw_plus_icon(dc, x * j, x * i, x)
+                # Draw cell info
+                if self.grid[i][j].inf is not None and self.grid[i][j].col != Colour.NA:
+                    dc.SetTextForeground(self.text_colour(self.grid[i][j].col))
+                    dc.DrawText(self.grid[i][j].inf, int(x * ( j + 0.2)) , int(x *( i + 0.2)))
 
-        except ValueError:
-            messagebox.showerror("Invalid input", "Please enter valid integers for rows and columns.")
+    def draw_plus_icon(self, dc, x, y, cell_size):
+        plus_size = cell_size // 5
+        half_plus = plus_size // 2
 
-    def start_paint(self, event):
-        self.current_color = self.get_next_color(event.widget.cget("bg"))
-        self.paint(event)
+        dc.SetPen(wx.Pen(wx.Colour(90, 90, 90), 2))  # Grey color for plus icon
+        center_x = x + cell_size - half_plus - 5  # Adjust the position slightly
+        center_y = y + half_plus + 5  # Adjust the position slightly
 
-    def paint(self, event):
-        if self.current_color is not None:
-            event.widget.config(bg=self.current_color)
+        # Vertical line of plus
+        dc.DrawLine(center_x, center_y - half_plus, center_x, center_y + half_plus)
+        # Horizontal line of plus
+        dc.DrawLine(center_x - half_plus, center_y, center_x + half_plus, center_y)
 
-            if self.current_color == "SystemButtonFace":
-                event.widget.config(highlightbackground="light grey")
-            else:
-                event.widget.config(highlightbackground="black")
+    def click(self, x, y):
+        cell_width = self.get_cell_width()
+        x = int(x / cell_width)
+        y = int(y / cell_width)
+        self.grid[x][y].col = self.get_next_colour(self.grid[x][y].col)
+        self.DoDrawing()
 
+    def OnClick(self, event):
+        y, x = event.GetPosition()
+        self.click(x,y)
 
-    def get_next_color(self, current_color):
-        if current_color == "SystemButtonFace":
-            return "black"
-        elif current_color == "black":
-            return "grey"
-        elif current_color == "grey":
-            return "white"
-        elif current_color == "white":
-            return "SystemButtonFace"
-        return "SystemButtonFace"
-
-    def add_text(self, r, c):
-        text = simpledialog.askstring("Input", "Enter text:")
-        if text:
-            cell = self.grid_frame.grid_slaves(row=r, column=c)[0].children['!canvas']
-            text_color = "blue"
-
-            # Check for existing text items and update or create
-            text_items = cell.find_withtag("text")
-            if text_items:
-                # Update the existing text
-                cell.itemconfig(text_items[0], text=text)
-            else:
-                # Create new text if none exists
-                cell.create_text(25, 25, text=text, fill=text_color, font=("Arial", 10), tags="text")
+    def OnDoubleClick(self, event):
+        y, x = event.GetPosition()
+        self.click(x,y)
+        self.click(x,y)
 
 
-    def compute(self):
-        result = your_function()  # Adjust this as needed
-        #messagebox.showinfo("Result", f"The result is: {result}")
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = GridApp(root)
-    root.mainloop()
+app = wx.App(False)
+frame = MyFrame(None, 'Islans of Insight')
+app.MainLoop()

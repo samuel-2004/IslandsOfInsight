@@ -326,6 +326,12 @@ class LogicGridCell():
         """
         self.inf = info
 
+    def set_colour(self, colour: Colour):
+        """
+        Sets info
+        """
+        self.col = colour
+
 LGC = LogicGridCell
 
 class LogicGrid():
