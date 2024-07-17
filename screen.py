@@ -12,7 +12,8 @@ class MyFrame(wx.Frame):
         self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.height)] for _1 in range(self.width)]
 
 
-        self.topnav_height = 30
+        self.topnav_height = 50
+        self.bottomnav_height = 30
 
         self.number = 0  # Initial number
         self.buttons = []
@@ -54,7 +55,7 @@ class MyFrame(wx.Frame):
         x = self.get_cell_width()
         h = x * self.height
         w = x * self.width
-        wx.Window.SetSize(self, h + 16, w + 39 + self.topnav_height)
+        wx.Window.SetSize(self, h + 16, w + 39 + self.topnav_height + self.bottomnav_height)
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
@@ -86,7 +87,6 @@ class MyFrame(wx.Frame):
             row_buttons = []
             for j in range(self.width):
                 pos = (c_width * (i + 1) - 25, c_width * j + 5 + self.topnav_height)
-                print(pos)
                 btn = wx.Button(self, label="+", size=(20, 20), pos=pos)
                 btn.Bind(wx.EVT_BUTTON, self.on_button_click)
                 btn.cell_coords = (i, j)
@@ -169,8 +169,8 @@ class MyFrame(wx.Frame):
 
     def click(self, x, y):
         cell_width = self.get_cell_width()
-        x = int(x / cell_width)
-        y = int(y / cell_width)
+        x = int((x - self.topnav_height) / cell_width)
+        y = int((y - self.topnav_height) / cell_width)
         self.grid[x][y].col = self.get_next_colour(self.grid[x][y].col)
         self.DoDrawing()
 
