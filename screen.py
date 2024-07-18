@@ -6,7 +6,7 @@ class MyFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(200,100), \
                 style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
-        #self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
+        
         self.width = 5
         self.height = 6
         self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.width)] for _1 in range(self.height)]
@@ -18,8 +18,11 @@ class MyFrame(wx.Frame):
         self.topnav_panel = wx.Panel(self)  # Create a panel to place the controls
         self.create_top_controls()  # Call method to create top controls
 
+        self.is_dragging = False
+
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
+        self.Bind(wx.EVT_LEFT_UP, self.LeftUp)
         self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
         self.Bind(wx.EVT_SIZE, self.OnResize)
         self.Show(True)
@@ -93,7 +96,7 @@ class MyFrame(wx.Frame):
         elif col == Colour.EMPTY:
             return Colour.NA
 
-    def create_button(self, i: int, j: int, cell_height: int | None = None) -> None:
+    def create_button(self, i: int, j: int, cell_height: int | None = None) -> wx.Button:
         """
         Creates an individual button
         """
@@ -103,16 +106,15 @@ class MyFrame(wx.Frame):
         btn = wx.Button(self, label="+", size=(20, 20), pos=pos)
         btn.Bind(wx.EVT_BUTTON, self.on_button_click)
         btn.cell_coords = (i, j)
+        return btn
 
     def init_buttons(self) -> None:
         """
         Initialises the buttons
         """
         for i in range(self.width):
-            row_buttons = []
             for j in range(self.height):
-                row_buttons.append(self.create_button(i, j))
-            self.buttons.append(row_buttons)
+                self.buttons.append(self.create_button(i, j))
 
     def create_top_controls(self) -> None:
         self.height_ctrl = wx.TextCtrl(self.topnav_panel, value=str(self.height), style=wx.TE_PROCESS_ENTER, size=(50, -1), pos=(100, 10))
@@ -132,9 +134,17 @@ class MyFrame(wx.Frame):
         btn_minus_width = wx.Button(self.topnav_panel, label="-", pos=(145, 40))
         btn_minus_width.Bind(wx.EVT_BUTTON, self.on_decrement_width)
 
+    def move_buttons(self, cell_height: int | None = None) -> None:
+        if cell_height is None:
+            cell_height = self.get_cell_height()
+        for btn in self.buttons:
+            i, j = btn.cell_coords
+            btn.SetPosition((cell_height * (i + 1) - 25, cell_height * j + 5 + self.topnav_height))
+
     def nums_modified(self) -> None:
         self.update_number_display()
         self.DoDrawing()
+        self.move_buttons()
 
     def on_increment_height(self, event) -> None:
         self.height += 1
@@ -143,12 +153,12 @@ class MyFrame(wx.Frame):
             self.buttons.append(self.create_button(i, self.height - 1))
         self.nums_modified()
 
-    def on_decrement_height(self, event) -> None:
+    def on_decrement_height(self, event) -> None: # no good
         if self.height == 1:
             return
         self.height -= 1
         self.grid.pop()
-        self.buttons.pop() # does not work
+        self.buttons = [b for b in self.buttons if b.cell_coords[1] != self.height]
         self.nums_modified()
 
     def on_increment_width(self, event) -> None:
@@ -217,6 +227,7 @@ class MyFrame(wx.Frame):
         y = int(y / cell_height)
         self.grid[x][y].col = self.get_next_colour(self.grid[x][y].col)
         self.DoDrawing()
+        self.is_dragging = True
 
     def OnClick(self, event):
         y, x = event.GetPosition()
@@ -226,6 +237,9 @@ class MyFrame(wx.Frame):
         y, x = event.GetPosition()
         self.click(x,y)
         self.click(x,y)
+
+    def LeftUp(self, event):
+        self.is_dragging = False
 
 
 
