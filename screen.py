@@ -7,24 +7,24 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, parent, title=title, size=(200,100), \
                 style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
         #self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
-        self.height = 5
-        self.width = 6
-        self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.height)] for _1 in range(self.width)]
+        self.width = 5
+        self.height = 6
+        self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.width)] for _1 in range(self.height)]
 
-
-        self.topnav_height = 50
+        self.topnav_height = 75
         self.bottomnav_height = 30
 
-        self.number = 0  # Initial number
         self.buttons = []
+        self.topnav_panel = wx.Panel(self)  # Create a panel to place the controls
+        self.create_top_controls()  # Call method to create top controls
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnClick)
         self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
+        self.Bind(wx.EVT_SIZE, self.OnResize)
         self.Show(True)
 
-        self.create_top_controls()
-        self.create_buttons()
+        self.init_buttons()
 
     def brush_colour(self, col: Colour):
         """
@@ -48,14 +48,26 @@ class MyFrame(wx.Frame):
         else:
             return wx.Colour(0,0,0)
 
-    def get_cell_width(self):
-        return int(min(70 - (0.05 * (self.height ** 2)), 70 - (0.05 * (self.width ** 2))))
+    def get_cell_height(self) -> int:
+        """
+        Calculates the cell height
+        """
+        return int(min(70 - (0.05 * (self.width ** 2)), 70 - (0.05 * (self.height ** 2))))
 
-    def resize_window(self):
-        x = self.get_cell_width()
-        h = x * self.height
-        w = x * self.width
+    def resize_window(self) -> None:
+        """
+        Resizes the window to fit the cells
+        """
+        x = self.get_cell_height()
+        h = x * self.width
+        w = x * self.height
         wx.Window.SetSize(self, h + 16, w + 39 + self.topnav_height + self.bottomnav_height)
+
+    def OnResize(self, event):
+        s = self.GetClientSize()
+        s[1] = self.topnav_height
+        self.topnav_panel.SetSize(s)  # Adjust the panel size to match the frame size
+        self.Refresh()  # Refresh the window to redraw the content
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
@@ -81,53 +93,83 @@ class MyFrame(wx.Frame):
         elif col == Colour.EMPTY:
             return Colour.NA
 
-    def create_buttons(self):
-        c_width = self.get_cell_width()
-        for i in range(self.height):
+    def create_button(self, i: int, j: int, cell_height: int | None = None) -> None:
+        """
+        Creates an individual button
+        """
+        if cell_height is None:
+            cell_height = self.get_cell_height()
+        pos = (cell_height * (i + 1) - 25, cell_height * j + 5 + self.topnav_height)
+        btn = wx.Button(self, label="+", size=(20, 20), pos=pos)
+        btn.Bind(wx.EVT_BUTTON, self.on_button_click)
+        btn.cell_coords = (i, j)
+
+    def init_buttons(self) -> None:
+        """
+        Initialises the buttons
+        """
+        for i in range(self.width):
             row_buttons = []
-            for j in range(self.width):
-                pos = (c_width * (i + 1) - 25, c_width * j + 5 + self.topnav_height)
-                btn = wx.Button(self, label="+", size=(20, 20), pos=pos)
-                btn.Bind(wx.EVT_BUTTON, self.on_button_click)
-                btn.cell_coords = (i, j)
-                row_buttons.append(btn)
+            for j in range(self.height):
+                row_buttons.append(self.create_button(i, j))
             self.buttons.append(row_buttons)
 
-    def create_top_controls(self):
-        panel = wx.Panel(self)
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
+    def create_top_controls(self) -> None:
+        self.height_ctrl = wx.TextCtrl(self.topnav_panel, value=str(self.height), style=wx.TE_PROCESS_ENTER, size=(50, -1), pos=(100, 10))
 
-        self.number_ctrl = wx.TextCtrl(panel, value=str(self.number), style=wx.TE_PROCESS_ENTER, size=(50, -1))
-        self.number_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_number_change)
+        btn_height_plus = wx.Button(self.topnav_panel, label="+", pos=(45, 10))
+        btn_height_plus.Bind(wx.EVT_BUTTON, self.on_increment_height)
 
-        btn_plus = wx.Button(panel, label="+")
-        btn_plus.Bind(wx.EVT_BUTTON, self.on_increment)
+        btn_height_minus = wx.Button(self.topnav_panel, label="-", pos=(145, 10))
+        btn_height_minus.Bind(wx.EVT_BUTTON, self.on_decrement_height)
 
-        btn_minus = wx.Button(panel, label="-")
-        btn_minus.Bind(wx.EVT_BUTTON, self.on_decrement)
 
-        sizer.Add(btn_plus, 0, wx.ALL | wx.CENTER, 5)
-        sizer.Add(self.number_ctrl, 0, wx.ALL | wx.CENTER, 5)
-        sizer.Add(btn_minus, 0, wx.ALL | wx.CENTER, 5)
+        self.width_ctrl = wx.TextCtrl(self.topnav_panel, value=str(self.width), style=wx.TE_PROCESS_ENTER, size=(50, -1), pos=(100, 40))
 
-        panel.SetSizer(sizer)
+        btn_plus_width = wx.Button(self.topnav_panel, label="+", pos=(45, 40))
+        btn_plus_width.Bind(wx.EVT_BUTTON, self.on_increment_width)
 
-    def on_increment(self, event):
-        self.number += 1
+        btn_minus_width = wx.Button(self.topnav_panel, label="-", pos=(145, 40))
+        btn_minus_width.Bind(wx.EVT_BUTTON, self.on_decrement_width)
+
+    def nums_modified(self) -> None:
         self.update_number_display()
+        self.DoDrawing()
 
-    def on_decrement(self, event):
-        self.number -= 1
-        self.update_number_display()
+    def on_increment_height(self, event) -> None:
+        self.height += 1
+        self.grid.append([LogicGridCell(Colour.NA) for _ in range(self.width)])
+        for i in range(self.width):
+            self.buttons.append(self.create_button(i, self.height - 1))
+        self.nums_modified()
 
-    def update_number_display(self):
-        self.number_ctrl.SetValue(str(self.number))
+    def on_decrement_height(self, event) -> None:
+        if self.height == 1:
+            return
+        self.height -= 1
+        self.grid.pop()
+        self.buttons.pop() # does not work
+        self.nums_modified()
 
-    def on_number_change(self, event):
-        try:
-            self.number = int(self.number_ctrl.GetValue())
-        except ValueError:
-            pass
+    def on_increment_width(self, event) -> None:
+        self.width += 1
+        for i in range(self.height):
+            self.grid[i].append(LogicGridCell(Colour.NA))
+            self.buttons.append(self.create_button(self.width- 1, i))
+        self.nums_modified()
+
+    def on_decrement_width(self, event) -> None:
+        if self.width == 1:
+            return
+        self.width -= 1
+        for i in range(self.height):
+            self.grid[i].pop()
+        self.buttons.pop()
+        self.nums_modified()
+
+    def update_number_display(self) -> None:
+        self.height_ctrl.SetValue(str(self.height))
+        self.width_ctrl.SetValue(str(self.width))
 
     def on_button_click(self, event) -> None:
         button = event.GetEventObject()
@@ -152,12 +194,12 @@ class MyFrame(wx.Frame):
         return user_input
 
     def draw_grid(self, dc) -> None:
-        x = self.get_cell_width()
+        x = self.get_cell_height()
         font = wx.Font(12, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         dc.SetFont(font)
 
-        for i in range(self.width):
-            for j in range(self.height):
+        for i in range(self.height):
+            for j in range(self.width):
                 # Draw cell
                 dc.SetPen(wx.Pen(wx.Colour(0, 0, 0), 1))
                 dc.SetBrush(self.brush_colour(self.grid[i][j].col))
@@ -168,11 +210,11 @@ class MyFrame(wx.Frame):
                     dc.DrawText(self.grid[i][j].inf, int(x * ( j + 0.2)) , int(x *( i + 0.2) + self.topnav_height))
 
     def click(self, x, y):
-        cell_width = self.get_cell_width()
+        cell_height = self.get_cell_height()
         if x < self.topnav_height:
             return
-        x = int((x - self.topnav_height) / cell_width)
-        y = int(y / cell_width)
+        x = int((x - self.topnav_height) / cell_height)
+        y = int(y / cell_height)
         self.grid[x][y].col = self.get_next_colour(self.grid[x][y].col)
         self.DoDrawing()
 
