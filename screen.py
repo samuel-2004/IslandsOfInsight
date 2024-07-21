@@ -6,7 +6,7 @@ class MyFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(200,100), \
                 style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
-        
+
         self.width = 5
         self.height = 6
         self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.width)] for _1 in range(self.height)]

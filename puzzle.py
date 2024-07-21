@@ -16,10 +16,10 @@ class Match3():
         each unique element can be combined
     func `solution` prints a solution to the Match3 puzzle to console
     """
-    def __init__(self, grid):
+    def __init__(self, grid: list[list[str]]):
         self.g = grid
-        self.width = len(g[0])
-        self.height = len(g)
+        self.width = len(grid[0])
+        self.height = len(grid)
         while True:
             if not self._check3():
                 break
@@ -182,7 +182,7 @@ class Match3():
                 solution.append(move)
                 return solution
 
-            # Delete child
+            # Undo move
             self.g = copy.deepcopy(stored_grid)
         return None
 
