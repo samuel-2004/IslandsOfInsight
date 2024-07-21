@@ -12,11 +12,15 @@ class MyFrame(wx.Frame):
         self.grid = [[LogicGridCell(Colour.NA) for _0 in range(self.width)] for _1 in range(self.height)]
 
         self.topnav_height = 75
-        self.bottomnav_height = 30
+        self.bottomnav_height = 50
 
         self.buttons = []
         self.topnav_panel = wx.Panel(self)  # Create a panel to place the controls
         self.create_top_controls()  # Call method to create top controls
+        self.create_bottom_controls()  # Call method to create top controls
+        self.compute_button = self.create_bottom_controls()
+        self.move_bottom_button()
+        print(self.compute_button.GetPosition())
 
         self.is_dragging = False
 
@@ -25,6 +29,7 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_LEFT_UP, self.LeftUp)
         self.Bind(wx.EVT_LEFT_DCLICK, self.OnDoubleClick)
         self.Bind(wx.EVT_SIZE, self.OnResize)
+        self.Bind(wx.EVT_RIGHT_DOWN, self.compute)
         self.Show(True)
 
         self.init_buttons()
@@ -56,6 +61,22 @@ class MyFrame(wx.Frame):
         Calculates the cell height
         """
         return int(min(70 - (0.05 * (self.width ** 2)), 70 - (0.05 * (self.height ** 2))))
+
+    def get_screen_width(self, cell_height: int | None = None) -> int:
+        """
+        Calculates the screen width
+        """
+        if cell_height is None:
+            cell_height = self.get_cell_height()
+        return cell_height * self.width
+
+    def get_screen_height(self, cell_height: int | None = None) -> int:
+        """
+        Calculates the screen height
+        """
+        if cell_height is None:
+            cell_height = self.get_cell_height()
+        return cell_height * self.height + self.topnav_height + self.bottomnav_height
 
     def resize_window(self) -> None:
         """
@@ -125,7 +146,6 @@ class MyFrame(wx.Frame):
         btn_height_minus = wx.Button(self.topnav_panel, label="-", pos=(145, 10))
         btn_height_minus.Bind(wx.EVT_BUTTON, self.on_decrement_height)
 
-
         self.width_ctrl = wx.TextCtrl(self.topnav_panel, value=str(self.width), style=wx.TE_PROCESS_ENTER, size=(50, -1), pos=(100, 40))
 
         btn_plus_width = wx.Button(self.topnav_panel, label="+", pos=(45, 40))
@@ -133,6 +153,19 @@ class MyFrame(wx.Frame):
 
         btn_minus_width = wx.Button(self.topnav_panel, label="-", pos=(145, 40))
         btn_minus_width.Bind(wx.EVT_BUTTON, self.on_decrement_width)
+
+    def create_bottom_controls(self) -> wx.Button:
+        btn = wx.Button(self, label="Compute", pos=(45, 40))
+        btn.Bind(wx.EVT_BUTTON, self.compute)
+        return btn
+
+    def move_bottom_button(self, pt: tuple[int] | None = None):
+        if pt is None:
+            pt = (
+                self.get_screen_width() // 2 - 15,
+                self.get_screen_height() - (self.bottomnav_height // 2) - 5
+            )
+        self.compute_button.SetPosition(pt)
 
     def move_buttons(self, cell_height: int | None = None) -> None:
         if cell_height is None:
@@ -145,6 +178,7 @@ class MyFrame(wx.Frame):
         self.update_number_display()
         self.DoDrawing()
         self.move_buttons()
+        self.move_bottom_button()
 
     def on_increment_height(self, event) -> None:
         self.height += 1
@@ -241,6 +275,8 @@ class MyFrame(wx.Frame):
     def LeftUp(self, event):
         self.is_dragging = False
 
+    def compute(self, event) -> None:
+        print(self.compute_button.GetPosition())
 
 
 app = wx.App(False)
