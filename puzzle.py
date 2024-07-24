@@ -203,6 +203,8 @@ class RuleEnum(Enum):
     `NUMBER` = region must be of specified size\n
     `CONNECT_CELLS` = cells of same colour (as specified) must connect\n
     `N_SYMBOL_PER_COLOUR` = n symbols (as specified) per colour (as specified)
+    `N_CELLS_PER_REGION` = n cells (as specified) per colour region (as specified)
+    `LETTER_SORTED` = each letter are in the same region
     """
     MATCH_PATTERN = 0
     MATCH_NOT_PATTERN = 1
@@ -211,6 +213,7 @@ class RuleEnum(Enum):
     CONNECT_CELLS = 4
     N_SYMBOL_PER_COLOUR = 5
     N_CELLS_PER_REGION = 6
+    LETTER_SORTED = 7
 
 class Rule():
     """
@@ -309,10 +312,23 @@ class LogicGridCell():
         self.inf = info
 
     def __str__(self):
-        return f'LogicGridCell({Colour(self.col)},{self.inf})'
+        out = "('"
+        if self.col == Colour.BLACK:
+            out += "B"
+        elif self.col == Colour.NA:
+            out += "#"
+        elif self.col == Colour.WHITE:
+            out += "W"
+        else:
+            out += " "
+        out += "',"
+        for i, j in self.inf:
+            out += i + ":" + j
+        out = out[:-1] + ")"
+        return out
 
     def __repr__(self):
-        return str(self)
+        return f'LogicGridCell({Colour(self.col)},{self.inf})'
 
     def __lt__(self, obj):
         return self.col < obj.col
@@ -366,22 +382,18 @@ class LogicGrid():
             self.sort_linked_cells()
 
     def __str__(self) -> str:
-        return str(self.g)
+        out = ""
+        for row in self.g:
+            out += "[" + ",".join([str(l) for l in row]) + "]\n"
+            print(out)
+            return out
+        return out[:-1]
 
     def __repr__(self) -> str:
-        out = ""
-        for i in range(self.height):
-            r = ""
-            for j in self.g[i]:
-                if j.col == Colour.BLACK:
-                    r += 'B'
-                elif j.col == Colour.WHITE:
-                    r += 'W'
-                elif j.col == Colour.EMPTY:
-                    r += ' '
-                elif j.col == Colour.NA:
-                    r += '#'
-            out += r + '\n'
+        out = str(self.g)
+        out += "\nRules:"
+        for i, rule in enumerate(self.rules):
+            out += f'{i}. {rule}\n'
         return out[:-1]
 
     def num_empty(self) -> int:
@@ -642,6 +654,61 @@ class LogicGrid():
                     return False
         return True
 
+    def _are_letters_sorted(self) -> bool:
+        true_visited = []
+        def dfs(x: int, y: int, letter: str):
+            stack = [(x, y)]
+            visited = []
+            colour = self.g[x][y].col
+
+            while stack:
+                e = stack.pop(0)
+                if e in visited:
+                    continue
+                visited.append(e)
+                if self.g[e[0]][e[1]].col != colour:
+                    continue
+                true_visited.append(e)
+                if "letter" in self.g[e[0]][e[1]].inf:
+                    if self.g[e[0]][e[1]]["letter"] != letter:
+                        return False
+
+                # Add orthogonal cells to stack
+                if e[0] - 1 >= 0: # cell above
+                    new_e = (e[0] - 1, e[1])
+                    if new_e not in visited:
+                        stack.append(new_e)
+                if e[0] + 1 < self.height: # Cell below
+                    new_e = (e[0] + 1, e[1])
+                    if new_e not in visited:
+                        stack.append(new_e)
+                if e[1] - 1 >= 0: # cell to the left
+                    new_e = (e[0], e[1] - 1)
+                    if new_e not in visited:
+                        stack.append(new_e)
+                if e[1] + 1 < self.width: # cell to the right
+                    new_e = (e[0], e[1] + 1)
+                    if new_e not in visited:
+                        stack.append(new_e)
+
+            return True
+
+        letters_searched = []
+        for i in range(self.height):
+            for j in range(self.width):
+                if "letter" in self.g[i][j].inf:
+                    # If the letter has been searched already
+                    if self.g[i][j]["letter"] in letters_searched:
+                        if (i, j) not in true_visited:
+                            return False
+                        continue
+                    # Now need to do a dfs from here
+                    res = dfs(i, j, self.g[i][j]["letter"])
+                    if not res:
+                        return False
+                    letters_searched.append(self.g[i][j]["letter"])
+        return True
+
     def _test_rules(self) -> bool:
         for rule in self.rules:
             if rule.rule_type in [RuleEnum.MATCH_PATTERN, RuleEnum.MATCH_NOT_PATTERN]:
@@ -668,6 +735,9 @@ class LogicGrid():
             elif rule.rule_type == RuleEnum.N_SYMBOL_PER_COLOUR:
                 if not self._n_symbols_per_colour_area(rule.rule_values["number"], \
                                 rule.rule_values["colour"]):
+                    return False
+            elif rule.rule_type == RuleEnum.LETTER_SORTED:
+                if not self._are_letters_sorted():
                     return False
         return True
 
@@ -757,6 +827,8 @@ def interpret_lg(grid: list[str]) -> LogicGrid:
                 logic_grid[-1].append(LGC(Colour.NA))
             else:
                 logic_grid[-1].append(LGC(Colour.EMPTY))
+    for r in logic_grid:
+        print(r)
     return LogicGrid(logic_grid)
 
 def create_solid_shape(string = None, c: Colour = None, w: int = None, \
